@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import handlebars from 'handlebars';
 import dayjs from 'dayjs';
+import { S3 } from 'aws-sdk';
 
 import { document } from '../utils/dynamodbClient';
 
@@ -65,10 +66,22 @@ export const handle = async event => {
   await browser.close();
 
   // Save to S3
+  const s3 = new S3();
+
+  await s3.putObject({
+    Bucket: 'serverless-certificates-ignite-nodejs',
+    Key: `${id}.pdf`,
+    ACL: 'public-read',
+    Body: pdf,
+    ContentType: 'application/pdf',
+  }).promise();
 
   return { 
     statusCode: 201, 
-    body: JSON.stringify({ message: 'Certificate created!'}),
+    body: JSON.stringify({ 
+      message: 'Certificate created!',
+      url: `https://serverless-certificates-ignite-nodejs.s3.sa-east-1.amazonaws.com/${id}.pdf`
+    }),
     headers: { 'Content-Type': 'application/json'}
   }
 };
