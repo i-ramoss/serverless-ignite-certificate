@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import handlebars from 'handlebars';
 import dayjs from 'dayjs';
+import { APIGatewayProxyHandler } from 'aws-lambda';
 import { S3 } from 'aws-sdk';
 
 import { document } from '../utils/dynamodbClient';
@@ -29,10 +30,19 @@ const compile = async function(data: ITemplate) {
   return handlebars.compile(html)(data);
 }
 
-export const handle = async event => {
+export const handle: APIGatewayProxyHandler = async event => {
   const { id, name, grade } = JSON.parse(event.body) as ICreateCertificate;
 
-  await document.put({ TableName: 'users_certificates', Item: { id, name, grade } }).promise();
+  const response = await document.query({ 
+    TableName: 'users_certificates', 
+    KeyConditionExpression: 'id = :id',
+    ExpressionAttributeValues: { ':id': id }
+  }).promise();
+
+  const userAlreadyExists = response.Items[0];
+
+  if (!userAlreadyExists) 
+    await document.put({ TableName: 'users_certificates', Item: { id, name, grade } }).promise();
 
   const medalPath = path.join(process.cwd(), 'src', 'templates', 'selo.png');
   const medal = fs.readFileSync(medalPath, 'base64');
